@@ -1,9 +1,10 @@
 import { Router } from 'express'
 
+import { getStuff } from '../handlers/get-stuff'
+import { updateId } from '../handlers/update-id'
+
 export const router = Router()
 
-router.post('/update/:id', (req, res) => {
-  const { id } = req.params
+router.get('/get', getStuff)
 
-  res.status(200).send(`${id} has been updated`)
-})
+router.post('/update/:id', updateId)
