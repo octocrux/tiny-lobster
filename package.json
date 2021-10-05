@@ -9,9 +9,10 @@
   "private": true,
   "scripts": {
     "clean": "rm -rf dist/* && mkdir -p dist",
+    "start": "yarn build && PORT=3001 NODE_ENV=production node dist/app.js",
     "build": "yarn clean && tsc --noEmit false --outDir dist",
-    "dev": "nodemon --config nodemon.json src/app.ts",
-    "dev:debug": "nodemon --config nodemon.json --inspect src/app.ts",
+    "dev": "PORT=3000 NODE_ENV=dev nodemon --config nodemon.json src/app.ts",
+    "dev:debug": "PORT=3000 NODE_ENV=dev nodemon --config nodemon.json --inspect src/app.ts",
     "lint": "eslint . --ext .ts"
   },
   "dependencies": {
