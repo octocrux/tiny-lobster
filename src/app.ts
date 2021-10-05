@@ -1,5 +1,6 @@
 import express from 'express'
 
+import { logger } from './config/logger'
 import { router } from './routes/routes'
 
 const {
@@ -8,9 +9,10 @@ const {
 } = process.env
 const app = express()
 
+logger.info(`Spinning up the application for ${NODE_ENV} environment`)
+
 app.use('/', router)
 
 app.listen(PORT, () => {
-  console.log(`Tiny Lobster listening at http://localhost:${PORT}`)
-  console.log(`Environment: ${NODE_ENV}`)
+  logger.info(`Tiny Lobster listening at http://localhost:${PORT}`)
 })
