@@ -7,9 +7,10 @@ const {
   PORT,
   NODE_ENV
 } = process.env
-const app = express()
 
 logger.info(`Spinning up the application for ${NODE_ENV} environment`)
+
+const app = express()
 
 app.use('/', router)
 
