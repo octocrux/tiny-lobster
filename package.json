@@ -11,7 +11,7 @@
     "clean": "rm -rf dist/* && mkdir -p dist",
     "build": "yarn clean && tsc --noEmit false --outDir dist",
     "dev": "nodemon --config nodemon.json src/app.ts",
-    "dev:debug": "nodemon --config nodemon.json --inspect-brk src/app.ts",
+    "dev:debug": "nodemon --config nodemon.json --inspect src/app.ts",
     "lint": "eslint . --ext .ts"
   },
   "dependencies": {
