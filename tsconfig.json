@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "target": "ES6",
+    "rootDir": "src",
+    "noEmit": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "typeRoots": [
+    "./@types",
+    "node_modules/@types/"
+  ],
+  "exclude": ["node_modules", "dist"]
+}
