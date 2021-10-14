@@ -1,24 +1,24 @@
-import { resolve } from 'path'
+import { join } from 'path'
 import { createLogger, format, transports } from 'winston'
+
+import config from './env'
 
 const { combine, timestamp, label, printf } = format
 
-const myFormat = printf(({ level, message, label, timestamp }) => {
-  return `${timestamp} [${label}] ${level}: ${message}`
+const myFormat = printf(({ level, message, label: msgLabel, timestamp: msgTimestamp }) => {
+  return `${msgTimestamp} [${msgLabel}] ${level}: ${message}`
 })
-
-const { NODE_ENV } = process.env
 
 const getLogName = () => {
   const DAY_MS = 24 * 60 * 60 * 1000
   const now = Date.now()
   const todayTimestamp = now - now % DAY_MS
 
-  return resolve(__dirname, `../../logs/${NODE_ENV}_${todayTimestamp}.log`)
+  return join(process.cwd(), 'logs', `${config.NODE_ENV}_${todayTimestamp}.log`)
 }
 
 const getLogger = () => {
-  if (NODE_ENV === 'production') {
+  if (config.NODE_ENV === 'production') {
     return createLogger({
       level: 'info',
       format: combine(
