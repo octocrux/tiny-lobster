@@ -10,7 +10,7 @@ on:
     types: [opened, synchronize, reopened, closed]
 
 env:
-  HEROKU_TEAM: "my-heroku-team"
+  # HEROKU_TEAM: "my-heroku-team"
   HEROKU_STAGING_APP: "tiny-lobster-staging"
   STAGING_APP_URL: "https://tiny-lobster-staging.herokuapp.com/"
   # HEROKU_REVIEW_APP_ADDONS: "--addons=heroku-postgresql:hobby-dev"
@@ -209,8 +209,8 @@ jobs:
       - name: Set the environment variables
         if: github.event.action == 'opened' || github.event.action == 'reopened'
         run: |
-          env | grep TEST_ > .env
           env | grep AUTH0 > .env
+          env | grep TEST_ >> .env
           env | grep API_AUDIENCE >> .env
           env | grep HEALTHCLOUD >> .env
           env | grep SALESFORCE >> .env
