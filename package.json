@@ -9,9 +9,9 @@
   "private": true,
   "scripts": {
     "clean": "rimraf dist/* && make-dir dist",
-    "start": "yarn recompile && cross-env PORT=3001 NODE_ENV=production node -r dotenv/config dist/app.js",
+    "start": "npm run recompile && cross-env PORT=3001 NODE_ENV=production node -r dotenv/config dist/app.js",
     "compile": "tsc --noEmit false --outDir dist",
-    "recompile": "yarn clean && yarn compile",
+    "recompile": "npm run clean && npm run compile",
     "dev": "nodemon --config nodemon.json src/app.ts",
     "dev:debug": "nodemon --config nodemon.json --inspect src/app.ts",
     "lint": "eslint . --ext .ts"
