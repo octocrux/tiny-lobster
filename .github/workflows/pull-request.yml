@@ -1,0 +1,276 @@
+# https://gist.github.com/copiousfreetime/4e41bd115b63bc928aa8e5f8daf26d1b#file-replicate-heroku-ci-cd-yml
+name: "CI/CD"
+
+on:
+  push:
+    branches:
+      - 'main'
+
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+env:
+  HEROKU_TEAM: "my-heroku-team"
+  HEROKU_STAGING_APP: "tiny-lobster-staging"
+  STAGING_APP_URL: "https://tiny-lobster-staging.herokuapp.com/"
+  # HEROKU_REVIEW_APP_ADDONS: "--addons=heroku-postgresql:hobby-dev"
+  HEROKU_PIPELINE_NAME: "tiny-lobster-pipeline"
+
+  # All the other environment variables your test environment needs
+  # XYZ_TOKEN: ${{ secrets.XYZ_TOKEN }}}
+  # SOMETHING_URL: ${{ secrets.SOMETHING_URL }}
+  TEST_VAR: "test"
+
+jobs:
+
+  # Continus Integration job that runs all the tests - similar to what was
+  # done with the Heroku CI Test. If you had an in-dyno database on your CI Test
+  # runs, then this should also work for you here with the postgres service.
+  continuous_integration:
+    if: github.event.action != 'closed'
+    env:
+    #   DATABASE_URL: postgresql://postgres:postgres@172.17.0.1/dbname_test
+      NODE_ENV: test
+    #   NOCK_DISABLE_NETWORK: on
+
+    runs-on: ubuntu-latest
+    # services:
+    #   postgres:
+    #     image: postgres
+    #     env:
+    #       POSTGRES_PASSWORD: postgres
+    #       POSTGRES_USER: postgres
+    #     ports:
+    #       - 5432:5432
+    #       # Set health checks to wait until postgres has started
+    #     options: >-
+    #       --health-cmd pg_isready
+    #       --health-interval 10s
+    #       --health-timeout 5s
+    #       --health-retries 5
+
+    steps:
+      - name: "Check out repository code"
+        uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version-file: .nvmrc
+          cache: 'npm'
+
+      - name: Update to latest npm
+        run: npm install npm@latest -g
+
+      - name: Install Node packages
+        run: npm install
+
+      - name: Setup the Test environment
+        run: ./ci/test-setup # This was what you did have in app.json for test environment for `test-setup` script
+
+      - name: Run tests
+        run: ./ci/test # This was hwat you had in app.json for test environment `test` script
+
+  # Auto deploy to the staging stage of the application pipelin when a push
+  # happens on the main branch in the repo. This replicates auto deployment to a
+  # heroku pipeline stage from a known branch. If you used a different branch,
+  # change it here and in the `on` section at the top of the workflow. Feel free
+  # to add other `_deploy` items if you had other branches going to other stages
+  #
+  # This also enforces that the test above run before the deploy happens
+  staging_deploy:
+    if: github.ref_name == 'main'
+    name: Deploy to Heroku Staging
+    needs: [continuous_integration]
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Check out repository code"
+        uses: actions/checkout@v3
+
+      - name: Get git output names
+        id: git
+        shell: bash
+        run: |
+          if [[ "${{ github.ref }}" != "refs/tags/"* ]]; then
+            if [[ ${{ github.event_name }} == 'pull_request' ]]; then
+              echo "::set-output name=current_branch::$HEAD_REF"
+            else
+              echo "::set-output name=current_branch::$REF_BRANCH"
+            fi
+          else
+            REF=$(printf "%q" "${{ github.ref }}")
+            REF_BRANCH=${REF/refs\/tags\/${{ inputs.strip_tag_prefix }}/}
+            echo "::set-output name=current_branch::$(eval printf "%s" "$REF_BRANCH")"
+          fi
+
+      # Wire up github deployments so that these can fire so if other
+      # integrations depended on the github deployment notifications, they can
+      # also still happen.
+      - uses: chrnorm/deployment-action@releases/v1
+        name: Create GitHub deployment
+        id: deployment
+        with:
+          initial_status: "in_progress"
+          token: "${{ github.token }}"
+          target_url: ${{ env.STAGING_APP_URL }}
+          environment: staging
+          ref: ${{ steps.git.outputs.current_branch }}
+
+      - uses: akhileshns/heroku-deploy@v3.12.12
+        name: Heroku Deploy
+        with:
+          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
+          heroku_app_name: ${{ env.HEROKU_STAGING_APP }}
+          heroku_email: ${{ secrets.HEROKU_EMAIL }}
+
+      - name: Update deployment status (success)
+        if: ${{ success() }}
+        uses: chrnorm/deployment-status@releases/v1
+        with:
+          token: "${{ github.token }}"
+          target_url: ${{ env.STAGING_APP_URL }}
+          state: "success"
+          deployment_id: ${{ steps.deployment.outputs.deployment_id }}
+          ref: ${{ steps.git.outputs.current_branch }}
+
+      - name: Update deployment status (failure)
+        if: ${{ failure() }}
+        uses: chrnorm/deployment-status@releases/v1
+        with:
+          token: "${{ github.token }}"
+          target_url: ${{ env.STAGING_APP_URL }}
+          state: "failure"
+          deployment_id: ${{ steps.deployment.outputs.deployment_id }}
+          ref: ${{ steps.git.outputs.current_branch }}
+
+  # Create a review app on pull request open or reopen, and push to the review
+  # app on PR syncronize a.k.a 'push'
+  review_deploy:
+    name: "Deploy to Heroku Review"
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    env:
+      HEROKU_APP_NAME: my-app-slug-review-pr-${{ github.event.number }}
+    steps:
+      - name: "Check out repository code"
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          ref: ${{ github.head_ref }}
+
+      - name: Get git output names
+        id: git
+        shell: bash
+        run: |
+          if [[ "${{ github.ref }}" != "refs/tags/"* ]]; then
+            if [[ ${{ github.event_name }} == 'pull_request' ]]; then
+              echo "::set-output name=current_branch::$HEAD_REF"
+            else
+              echo "::set-output name=current_branch::$REF_BRANCH"
+            fi
+          else
+            REF=$(printf "%q" "${{ github.ref }}")
+            REF_BRANCH=${REF/refs\/tags\/${{ inputs.strip_tag_prefix }}/}
+            echo "::set-output name=current_branch::$(eval printf "%s" "$REF_BRANCH")"
+          fi
+
+      # Wire up the github deployment so the links are valid for the PR under
+      # `view deployment`
+      - name: Create GitHub deployment
+        uses: chrnorm/deployment-action@releases/v1
+        id: deployment
+        with:
+          initial_status: "in_progress"
+          token: "${{ github.token }}"
+          target_url: https://${{ env.HEROKU_APP_NAME}}.herokuapp.com/
+          environment: ${{ env.HEROKU_APP_NAME }}
+          ref: ${{ github.head_ref }}
+
+      - name: Login to Heroku
+        uses: akhileshns/heroku-deploy@v3.12.12
+        with:
+          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
+          heroku_email: ${{ secrets.HEROKU_EMAIL }}
+          heroku_app_name: ${{ env.HEROKU_APP_NAME }}
+          justlogin: true
+
+      - name: Create Heroku app
+        if: github.event.action == 'opened' || github.event.action == 'reopened'
+        run: heroku apps:create ${{ env.HEROKU_APP_NAME }} --team=${{ env.HEROKU_TEAM }} ${{ env.HEROKU_REVIEW_APP_ADDONS }}
+
+      - name: Add Heroku app to pipeline
+        if: github.event.action == 'opened' || github.event.action == 'reopened'
+        run: heroku pipelines:add ${{ env.HEROKU_PIPELINE_NAME }} --app=${{ env.HEROKU_APP_NAME }} --stage=development
+
+      # This is where you set the environment variables that were part of the
+      # original Heroku Config Vars for the Review App. Update this as
+      # appropriate
+      - name: Set the environment variables
+        if: github.event.action == 'opened' || github.event.action == 'reopened'
+        run: |
+          env | grep TEST_ > .env
+          env | grep AUTH0 > .env
+          env | grep API_AUDIENCE >> .env
+          env | grep HEALTHCLOUD >> .env
+          env | grep SALESFORCE >> .env
+          cat .env | tr '\n' ' ' | xargs heroku config:set --app=${{ env.HEROKU_APP_NAME }}
+          rm -f .env
+
+      - name: Add Heroku remote
+        if: github.event.action != 'closed'
+        run: heroku git:remote --app=${{ env.HEROKU_APP_NAME }}
+
+      # Depending on how your heroku organization is setup, the step may not
+      # be necessary. Previously in heroku review apps, the members of the
+      # pipeline team would be automatically given ephemeral permissions on the
+      # review app. That doesn't happen so this needs to be replicated.
+      #
+      # This will cause a lot of email notifications.
+      - name: Set Member Permissions
+        if: github.event.action != 'closed'
+        shell: bash --noprofile --norc {0}
+        run: |
+          users=$(heroku members --team ${{ env.HEROKU_TEAM }} | grep "something appropriate" | awk '{ print $1 }')
+          for user in ${users}
+          do
+            heroku access:add ${user} --app=${{ env.HEROKU_APP_NAME }} --permissions deploy,operate,manage
+            heroku access:update ${user} --app=${{ env.HEROKU_APP_NAME }} --permissions deploy,operate,manage
+          done
+          exit 0
+
+      - name: Push to Heroku
+        if: github.event.action != 'closed'
+        run: git push heroku ${{ github.head_ref }}:main --force
+
+      # Update the github deployment with success and link to the environment
+      - name: Update deployment status
+        if: github.event.action != 'closed'
+        uses: chrnorm/deployment-status@releases/v1
+        with:
+          token: "${{ github.token }}"
+          target_url: https://${{ env.HEROKU_APP_NAME}}.herokuapp.com/
+          environment_url: https://${{ env.HEROKU_APP_NAME}}.herokuapp.com/
+          state: "success"
+          deployment_id: ${{ steps.deployment.outputs.deployment_id }}
+
+  # Once the PR is closed, destroy the app in heroku.
+  #
+  review_destroy:
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    name: "Cleanup and Remove Heroku Review"
+    runs-on: ubuntu-latest
+    env:
+      HEROKU_APP_NAME: my-app-slug-review-pr-${{ github.event.number }}
+
+    steps:
+      - name: Login to Heroku
+        uses: akhileshns/heroku-deploy@v3.12.12
+        with:
+          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
+          heroku_email: ${{ secrets.HEROKU_EMAIL }}
+          heroku_app_name: ${{ env.HEROKU_APP_NAME }}
+          justlogin: true
+
+      - name: Destroy Heroku app
+        run: heroku apps:destroy --app=${{ env.HEROKU_APP_NAME }} --confirm=${{ env.HEROKU_APP_NAME }}
+
