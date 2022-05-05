@@ -66,10 +66,10 @@ jobs:
         run: npm install
 
       - name: Setup the Test environment
-        run: ./ci/test-setup # This was what you did have in app.json for test environment for `test-setup` script
+        run: node ./ci/test-setup.js # This was what you did have in app.json for test environment for `test-setup` script
 
       - name: Run tests
-        run: ./ci/test # This was hwat you had in app.json for test environment `test` script
+        run: node ./ci/test.js # This was what you had in app.json for test environment `test` script
 
   # Auto deploy to the staging stage of the application pipelin when a push
   # happens on the main branch in the repo. This replicates auto deployment to a
@@ -196,7 +196,8 @@ jobs:
 
       - name: Create Heroku app
         if: github.event.action == 'opened' || github.event.action == 'reopened'
-        run: heroku apps:create ${{ env.HEROKU_APP_NAME }} --team=${{ env.HEROKU_TEAM }} ${{ env.HEROKU_REVIEW_APP_ADDONS }}
+        run: heroku apps:create ${{ env.HEROKU_APP_NAME }}
+        # run: heroku apps:create ${{ env.HEROKU_APP_NAME }} --team=${{ env.HEROKU_TEAM }} ${{ env.HEROKU_REVIEW_APP_ADDONS }}
 
       - name: Add Heroku app to pipeline
         if: github.event.action == 'opened' || github.event.action == 'reopened'
