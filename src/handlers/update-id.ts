@@ -1,4 +1,5 @@
 import { RequestHandler } from 'express'
+import { StatusCodes } from 'http-status-codes'
 
 import { logger } from '../config/logger'
 
@@ -7,5 +8,5 @@ export const updateId: RequestHandler = (req, res) => {
 
   const { id } = req.params
 
-  res.status(200).send(`${id} has been updated`)
+  res.status(StatusCodes.OK).send(`${id} has been updated`)
 }

@@ -1,5 +1,6 @@
 import { RequestHandler } from 'express'
-import path from 'path'
+import { StatusCodes } from 'http-status-codes'
+import { join } from 'path'
 
 import { logger } from '../config/logger'
 import { readCornerLines } from '../util/read-corner-lines'
@@ -7,12 +8,14 @@ import { readCornerLines } from '../util/read-corner-lines'
 export const getStuff: RequestHandler = (req, res) => {
   logger.info('handler: getStuff')
 
-  const fileName = path.resolve(__dirname, '../../static/stuff.txt')
+  const fileName = join(process.cwd(), 'static', 'stuff.txt')
+
+  logger.info(`getStuff: ${fileName}`)
 
   readCornerLines(fileName).then(({ firstLine, lastLine }) => {
     logger.info('getStuff: lines read')
 
-    res.status(200).json({
+    res.status(StatusCodes.OK).json({
       firstLine,
       lastLine,
       searchParams: req.query

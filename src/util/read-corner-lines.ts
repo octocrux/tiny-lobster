@@ -4,7 +4,7 @@ import { createInterface } from 'readline'
 type CornerLines = {
   firstLine: string;
   lastLine: string;
-};
+}
 
 export const readCornerLines = (fileName: string, timeout = 20000): Promise<CornerLines> => {
   const inStream = createReadStream(fileName, { encoding: 'utf8' })
